@@ -113,6 +113,7 @@ static int nabove_hispeed_delay = ARRAY_SIZE(default_above_hispeed_delay);
 #define DEFAULT_BOOSTPULSE_DURATION 1000000
 /* Duration of a boot pulse in usecs */
 static int boostpulse_duration_val = DEFAULT_BOOSTPULSE_DURATION;
+bool boosted;
 
 /*
  * Max additional time to wait in idle, beyond timer_rate, at speeds above
@@ -370,7 +371,6 @@ static void cpufreq_interactive_timer(unsigned long data)
 	unsigned int loadadjfreq;
 	unsigned int index;
 	unsigned long flags;
-	bool boosted;
 	unsigned long mod_min_sample_time;
 	int i, max_load;
 	unsigned int max_freq;
@@ -397,9 +397,11 @@ static void cpufreq_interactive_timer(unsigned long data)
 	pcpu->prev_load = cpu_load;
 	boosted = now < (last_input_time + boostpulse_duration_val);
 
+	cpufreq_notify_utilization(pcpu->policy, cpu_load);
+
 	if (cpu_load >= go_hispeed_load)
 	{
-		if (pcpu->target_freq < hispeed_freq) 
+		if (pcpu->target_freq < hispeed_freq)
 			new_freq = hispeed_freq;
 		else
 		{
@@ -409,7 +411,7 @@ static void cpufreq_interactive_timer(unsigned long data)
 				new_freq = hispeed_freq;
 		}
 	}
-	else 
+	else
 	{
 		new_freq = choose_freq(pcpu, loadadjfreq);
 
@@ -459,9 +461,6 @@ static void cpufreq_interactive_timer(unsigned long data)
 		goto rearm;
 
 	new_freq = pcpu->freq_table[index].frequency;
-
-	if (new_freq == pcpu->policy->cur)
-		goto rearm;
 
 	/*
 	 * Do not scale below floor_freq unless we have been at or above the
